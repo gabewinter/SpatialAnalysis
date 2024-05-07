@@ -1,0 +1,161 @@
+---
+title: "Phenotypic plasticity, heritability, and genotype-by-environment interactions in an insect dispersal polymorphism"
+date: today
+date-format: long
+
+format: 
+  html: 
+    embed-resources: true
+    theme: cosmo
+    df-print: paged
+
+toc: true
+toc-location: left
+number-sections: true
+number-depth: 4
+title-block-banner: true
+editor: source
+---
+
+# Setup
+
+```{r}
+#| echo: false
+#| eval: true
+
+# Cleaning the enviroment
+rm(list=ls())
+
+# Align figures to center
+knitr::opts_chunk$set(fig.align="center")
+
+# Disable scientific notation
+options(scipen=999)
+
+```
+
+**Loading packages**
+
+Install also R tools 4.0: <https://cran.r-project.org/bin/windows/Rtools/>
+
+```{r setup}
+#| warning: false
+#| message: false
+
+
+library(brms)
+library(parallel)
+library(posterior)
+library(coda)
+library(tidyverse)
+```
+
+Loading data, which is referred to as md from now on.
+
+```{r}
+md = read.table(file.choose(), head = T)
+```
+
+Create an ID per cell
+
+```{r}
+md = md %>% 
+  mutate(CellID = paste0("C", str_pad(1:nrow(md), width = 7, pad = "0"))) %>% 
+  select(CellID, long, lat, Poll_services_current,Poll_services_81_45,Poll_services_81_85) %>% 
+  rename("lon" = "long") %>% 
+  drop_na()
+
+subset = md[1:1000,] %>% 
+  pivot_longer(cols = 4:6, names_to = "Time", values_to = "Poll_services") %>% 
+  mutate(Time = recode(Time,
+"Poll_services_81_45" = "Future45",
+"Poll_services_81_85" = "Future85",
+"Poll_services_current" = "Current")) %>% 
+  mutate(Poll_services = as.numeric(Poll_services),
+         Time = as.factor(Time))
+```
+
+
+# model without spatial data
+
+```{r}
+chainset ="test"
+
+
+if(chainset=="longer") { warmup=50000; iter=100000; thin=50; chains=2 }
+if(chainset=="long") { warmup=15000; iter=30000; thin=15; chains=2 }
+if(chainset=="test") { warmup=100; iter=1100; thin=1; chains=2 }
+
+start.time = Sys.time()
+
+
+mod = brm(bf(Poll_services ~ Time + (1|CellID)), 
+             #family = bernoulli(link="logit"),
+             data = subset,
+             warmup=warmup, 
+             iter=iter, 
+             thin=thin, 
+             init="random", 
+             chains=chains, 
+             cores=parallel::detectCores(), 
+             sample_prior = TRUE, 
+              control=list(adapt_delta = 0.9)) 
+
+
+end.time = Sys.time()
+time.taken = end.time - start.time; time.taken
+save(mod, file=paste0("mod", 
+                      chainset, ".RData"))
+```
+ 
+ 
+```{r}
+print(mod)
+plot(conditional_effects(mod), ask = FALSE)
+```
+
+
+# Model with spatial data
+
+```{r}
+# Find how to create an "Adjacency matrix of locations" 
+# https://paul-buerkner.github.io/brms/reference/car.html
+
+```
+
+```{r}
+chainset ="test"
+
+if(chainset=="longer") { warmup=50000; iter=100000; thin=50; chains=2 }
+if(chainset=="long") { warmup=15000; iter=30000; thin=15; chains=2 }
+if(chainset=="test") { warmup=100; iter=1100; thin=1; chains=2 }
+
+start.time = Sys.time()
+
+
+mod_spd = brm(bf(Poll_services ~ Time + car(Matrix, gr = CellID, type = 'icar')), 
+             #family = bernoulli(link="logit"),
+             data = subset,
+             data2 = list(Matrix = Matrix),
+             warmup=warmup, 
+             iter=iter, 
+             thin=thin, 
+             init="random", 
+             chains=chains, 
+             cores=parallel::detectCores(), 
+             sample_prior = TRUE, 
+              control=list(adapt_delta = 0.9)) 
+
+
+end.time = Sys.time()
+time.taken = end.time - start.time; time.taken
+save(mod, file=paste0("mod_spd", 
+                      chainset, ".RData"))
+```
+
+
+```{r}
+print(mod_spd)
+plot(conditional_effects(mod_spd), ask = FALSE)
+
+```
