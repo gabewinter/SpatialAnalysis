@@ -62,7 +62,6 @@ Create an ID per cell
 md = md %>% 
   mutate(CellID = paste0("C", str_pad(1:nrow(md), width = 7, pad = "0"))) %>% 
   select(CellID, long, lat, Poll_services_current,Poll_services_81_45,Poll_services_81_85) %>% 
-  rename("lon" = "long") %>% 
   drop_na()
 
 subset = md[1:1000,] %>% 
@@ -117,9 +116,15 @@ plot(conditional_effects(mod), ask = FALSE)
 
 # Model with spatial data
 
+## Euclidean distance matrix
+
 ```{r}
-# Find how to create an "Adjacency matrix of locations" 
-# https://paul-buerkner.github.io/brms/reference/car.html
+coords = subset %>% 
+  distinct(long, lat, CellID)
+  
+distance_matrix = as.matrix(dist(coords[,c("long","lat")], method = "euclidean"))
+rownames(distance_matrix) = coords$CellID
+colnames(distance_matrix) = coords$CellID
 
 ```
 
@@ -133,10 +138,10 @@ if(chainset=="test") { warmup=100; iter=1100; thin=1; chains=2 }
 start.time = Sys.time()
 
 
-mod_spd = brm(bf(Poll_services ~ Time + car(Matrix, gr = CellID, type = 'icar')), 
-             #family = bernoulli(link="logit"),
+mod_spd = brm(bf(Poll_services ~ Time + car(distance_matrix, gr = CellID, type = 'icar')), 
+             family = Beta(),
              data = subset,
-             data2 = list(Matrix = Matrix),
+             data2 = list(distance_matrix = distance_matrix),
              warmup=warmup, 
              iter=iter, 
              thin=thin, 
