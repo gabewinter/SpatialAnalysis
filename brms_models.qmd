@@ -154,7 +154,7 @@ mod_spd = brm(bf(Poll_services ~ Time + car(distance_matrix, gr = CellID, type =
 
 end.time = Sys.time()
 time.taken = end.time - start.time; time.taken
-save(mod, file=paste0("mod_spd", 
+save(mod_spd, file=paste0("mod_spd", 
                       chainset, ".RData"))
 ```
 
