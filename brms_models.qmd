@@ -89,7 +89,7 @@ start.time = Sys.time()
 
 
 mod = brm(bf(Poll_services ~ Time + (1|CellID)), 
-             #family = bernoulli(link="logit"),
+             family = Beta(),
              data = subset,
              warmup=warmup, 
              iter=iter, 
